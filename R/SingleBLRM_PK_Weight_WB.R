@@ -64,10 +64,10 @@ SingleBLRM.PK.Weight.WB <- function(){
   #  Probabilities of Tox: pTox
   for(l in 1:Nout){
     for (i in 1:Ndoses)  {
-      lin[i,l] <- logAlphaBeta[1] + (equals(monotone.DLT,1)*exp(logAlphaBeta[2])+ equals(monotone.DLT,2)*logAlphaBeta[2])*log(mu[i,l]) #/(mean(mu[,])))
+      lin[i,l] <- logAlphaBeta[1] + (equals(monotone.DLT,1)*exp(logAlphaBeta[2])+ equals(monotone.DLT,2)*logAlphaBeta[2])*mu[i,l] #/(mean(mu[,])))
       logit(pTox[i,l]) <- lin[i,l]
 
-      log(mu[i,l]) <-  logGamma[1] + (equals(monotone.DE,1)*exp(logGamma[2])+ equals(monotone.DE,2)*logGamma[2])*log(Doses[i,1]/DoseRef) + inprod(Xout[l,1:Ncov],beta[1:Ncov,1])
+      mu[i,l] <-  logGamma[1] + (equals(monotone.DE,1)*exp(logGamma[2])+ equals(monotone.DE,2)*logGamma[2])*log(Doses[i,1]/DoseRef) + inprod(Xout[l,1:Ncov],beta[1:Ncov,1])
 
 
       # for each dose, indicators for different toxicity categories
@@ -125,12 +125,12 @@ SingleBLRM.PK.Weight.WB <- function(){
   
   #  binomial likelihoods for DLT and Normal likelihood for PK parameter
   for (i in 1:Ncohorts)  {
-    lin1[i] <- logAlphaBeta[1] + (equals(monotone.DLT,1)*exp(logAlphaBeta[2])+ equals(monotone.DLT,2)*logAlphaBeta[2])*log(mu1[i,1]) #/mean(mu1[,]))
+    lin1[i] <- logAlphaBeta[1] + (equals(monotone.DLT,1)*exp(logAlphaBeta[2])+ equals(monotone.DLT,2)*logAlphaBeta[2])*log(PK[i,1]) #/mean(mu1[,]))
     logit(p1Tox[i]) <- lin1[i]
     
     re.PK[i, 1:2] ~ dmnorm(zero1[1:2], prec.re.PK[1:2,1:2])
     
-    log(mu1[i,1]) <-  logGamma[1] + (equals(monotone.DE,1)*exp(logGamma[2])+ equals(monotone.DE,2)*logGamma[2])*log(DosesAdm[i,1]/DoseRef) + inprod(X[i,1:Ncov],beta[1:Ncov,1]) + equals(rand.m,1)*re.PK[i, 1] + equals(rand.slope,1)*equals(rand.m,1)*re.PK[i, 2]*log(DosesAdm[i,1]/DoseRef)  
+    mu1[i,1] <-  logGamma[1] + (equals(monotone.DE,1)*exp(logGamma[2])+ equals(monotone.DE,2)*logGamma[2])*log(DosesAdm[i,1]/DoseRef) + inprod(X[i,1:Ncov],beta[1:Ncov,1]) + equals(rand.m,1)*re.PK[i, 1] + equals(rand.slope,1)*equals(rand.m,1)*re.PK[i, 2]*log(DosesAdm[i,1]/DoseRef)  
     
 
     #Using zero trick for the likelihood for any(Npat < 1) || any(Ntox != round(Ntox)) || any(Npat != floor(Npat)

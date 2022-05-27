@@ -64,10 +64,10 @@ SingleBLRM.PK.Prior.WB <- function(){
   #  Probabilities of Tox: pTox
   for(l in 1:Nout){
     for (i in 1:Ndoses)  {
-      lin[i,l] <- logAlphaBeta[1] + (equals(monotone.DLT,1)*exp(logAlphaBeta[2])+ equals(monotone.DLT,2)*logAlphaBeta[2])*log(mu[i,l])
+      lin[i,l] <- logAlphaBeta[1] + (equals(monotone.DLT,1)*exp(logAlphaBeta[2])+ equals(monotone.DLT,2)*logAlphaBeta[2])*mu[i,l]
       logit(pTox[i,l]) <- lin[i,l]
 
-      log(mu[i,l]) <-  logGamma[1] + (equals(monotone.DE,1)*exp(logGamma[2])+ equals(monotone.DE,2)*logGamma[2])*log(Doses[i,1]/DoseRef) + inprod(Xout[l,1:Ncov],beta[1:Ncov,1])
+      mu[i,l] <-  logGamma[1] + (equals(monotone.DE,1)*exp(logGamma[2])+ equals(monotone.DE,2)*logGamma[2])*log(Doses[i,1]/DoseRef) + inprod(Xout[l,1:Ncov],beta[1:Ncov,1])
 
 
       # for each dose, indicators for different toxicity categories

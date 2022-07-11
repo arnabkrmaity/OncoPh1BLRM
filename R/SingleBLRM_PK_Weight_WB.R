@@ -48,11 +48,11 @@ SingleBLRM.PK.Weight.WB <- function(){
     Zcat.PK[j] <- equals(Z.PK,j)
   }
 
-  logGamma[1] <-  logGammaAll[Z.PK,1]
-  logGamma[2] <-  logGammaAll[Z.PK,2]
+  logGamma[1] <-  logGammaAll[Z,1]
+  logGamma[2] <-  logGammaAll[Z,2]
 
-  logEGamma[1] <-  logGammaAll[Z.PK,1]
-  logEGamma[2] <-  exp(logGammaAll[Z.PK,2])
+  logEGamma[1] <-  logGammaAll[Z,1]
+  logEGamma[2] <-  exp(logGammaAll[Z,2])
 
   logGamma.XY <- logGamma[1]*logGamma[2]
 
@@ -125,7 +125,7 @@ SingleBLRM.PK.Weight.WB <- function(){
   
   #  binomial likelihoods for DLT and Normal likelihood for PK parameter
   for (i in 1:Ncohorts)  {
-    lin1[i] <- logAlphaBeta[1] + (equals(monotone.DLT,1)*exp(logAlphaBeta[2])+ equals(monotone.DLT,2)*logAlphaBeta[2])*log(PK[i,1]) #/mean(mu1[,]))
+    lin1[i] <- logAlphaBeta[1] + (equals(monotone.DLT,1)*exp(logAlphaBeta[2])+ equals(monotone.DLT,2)*logAlphaBeta[2])*mu1[i,1] #/mean(mu1[,]))
     logit(p1Tox[i]) <- lin1[i]
     
     re.PK[i, 1:2] ~ dmnorm(zero1[1:2], prec.re.PK[1:2,1:2])
@@ -138,7 +138,7 @@ SingleBLRM.PK.Weight.WB <- function(){
     #zero[i] <- 0
     minus.loglik[i] <- -Ntox[i,1]*log(p1Tox[i]) - (Npat[i,1] - Ntox[i,1])*log(1 - p1Tox[i])
     zero[i] ~ dpois(minus.loglik[i])
-    PK[i,1] ~ dlnorm(mu1[i,1], tau.PK[Dose.Grp[i]])
+    PK[i,1] ~ dnorm(mu1[i,1], tau.PK[Dose.Grp[i]])
   }
 }
 

@@ -136,7 +136,7 @@ SingleBLRM.PK <- function(Data               = NULL,
                           pmix.logAB.PK      = c(1),
                           monotone.PK        = TRUE,
                           Prior.sd.PK        = NULL,
-                          random.model       = TRUE,
+                          random.model       = FALSE,
                           random.slope       = FALSE,
                           Prior.re.sd.PK     = NULL,
                           Prior.re.rho       = c(0,1),
@@ -158,112 +158,112 @@ SingleBLRM.PK <- function(Data               = NULL,
                           RSeed.WinBUGS      = 1367
 )
 {
-  
-  
+
+
   version = "15-September-2019"
-  
+
   set.seed(Rnd.seed)
   
   stopifnot("Mixture weights must add to 1" = sum(pmix.logAB) == 1)
   stopifnot("Mixture weights must add to 1" = sum(pmix.logAB.PK) == 1)
-  
+
   if(Prior.Only){DIC=FALSE}
-  
+
   # MCMC parameters
   n.burnin = MCMC[1]
   n.iter = MCMC[2]
   n.chains = MCMC[3]
   n.thin = MCMC[4]
-  
+
   #Reading Data
-  
+
   if(!Prior.Only){
-    
+
     DosesAdm   = Data$DosesAdm
     Dose.Grp   = Data$Dose.Grp
     Ntox       = Data$Ntox*Data$Weight
     Npat       = Data$Npat*Data$Weight
-    PK         = Data$PK
-    
+    PK         = log(Data$PK)
+
     DosesAdm[DosesAdm == 0] = 0.00001
-    
+
     Ncohorts <- length(DosesAdm)
-    
+
     DosesAdm<- cbind(NULL, DosesAdm)
-    
+
     Ntox <- cbind(NULL, Ntox)
     Npat <- cbind(NULL, Npat)
     PK <- cbind(NULL, PK)
     zero <- rep(0,Ncohorts)
-    
+
   }
-  
+
   if(Prior.Only){Npat=0; Ntox=0; Ncohorts=0}
-  
+
   X = Data$X
-  
-  
+
+
   if (is.null(X)) {
     # create X matrix with value = 0
     withCov = FALSE
     X = matrix(0,Ncohorts,1)
     Xout=matrix(0,1,1)
-  }
-  
+    }
+
   if (is.null(Xout)) {
     # create Xout matrix with value = 0
     Xout=matrix(0,1,1)
-    
+
   }
-  
+
   if(is.null(Xout.label)){Xout.label=""}else{Xout.label = Xout.label}
-  
+
   if (!is.matrix(X))
     X = matrix(X,1)
-  
+
   if (!is.matrix(Xout))
     Xout = matrix(Xout,1)
-  
+
   Nout = nrow(Xout)
   Ncov = ncol(X)
-  
+
   Ndoses <- length(Doses)
-  
+
   Ncat <- length(Pcutoffs) + 1
   Pcutoffs1 = c(0, Pcutoffs, 1)
-  
+
   intLabels = paste(Pcutoffs1[1:Ncat], "-", Pcutoffs1[2:(Ncat + 1)], sep = "")
-  
+
   if(is.null(Doses.Label)){Doses.Label = paste(Agent, "=", Doses, sep = '')}else{Doses.Label =Doses.Label}
   pred.tox.Label = paste("DLT=",0:New.cohortsize, sep='')
-  
+
   Doses.1 =Doses
-  
+
   Doses[Doses ==0] = 0.00001
-  
+
   Doses <- cbind(NULL, Doses)
-  
+
   if(min(pmix.logAB) < 1){pars <- c(pars, "Zcat")}
   if(min(pmix.logAB.PK) < 1){pars <- c(pars, "Zcat.PK")}
-  
+
   #Priors
-  
+
   #Bivariate normal prior for (logAlpha,logBeta)
-  
+
   Prior.logAB.1 <- c(Prior.logAB, list(c(0,0,0.1,0.1,0)))
   Pmix <- c(pmix.logAB, 0)
   Prior <- do.call(rbind,Prior.logAB.1)
-  
+
   Pmix <- cbind(NULL, Pmix)
   Nmix1 <- length(Prior.logAB.1)
   monotone.DLT <- ifelse(monotone.logAB == TRUE, 1, 2)
-  
+
   #Bivariate normal prior for (logGamma1,logGamma2)
-  
+
   Prior.PK.1 <- c(Prior.logAB.PK, list(c(0,0,0.1,0.1,0)))
   Pmix.PK <- c(pmix.logAB.PK, 0)
   Prior.PK <- do.call(rbind,Prior.PK.1)
-  
+
   Pmix.PK <- cbind(NULL, Pmix.PK)
   Nmix2 <- length(Prior.PK.1)
   monotone.DE <- ifelse(monotone.PK == TRUE, 1, 2)
@@ -273,94 +273,94 @@ SingleBLRM.PK <- function(Data               = NULL,
   if(rand.m ==2){rand.slope <- 2}
   
   if(rand.m ==2){Prior.re.sd.PK <- rbind(c(0, 0.001), c(0, 0.001))}
-  
+
   #Normal prior for beta
-  
+
   Prior.beta <- Prior.beta
-  
+
   #Prior for sd
   
-  
+
   Prior.sd.PK <- rbind(NULL,Prior.sd.PK)
   
   if(nrow(Prior.sd.PK)==1){Prior.sd.PK <- matrix(rep(Prior.sd.PK, times=Ndoses), nrow=Ndoses, byrow=T)}
-  
+
   
   #Prior for random effect sd
-  
+
   Prior.re.sd.PK <- rbind(NULL, Prior.re.sd.PK)
   if(nrow(Prior.re.sd.PK)==1){Prior.re.sd.PK <- rbind(Prior.re.sd.PK, c(Prior.re.sd.PK[1,1]/2, Prior.re.sd.PK[1,2]))}
-  
+
   Prior.re.rho <- Prior.re.rho
-  
+
   #Choice of model
-  
+
   if(Prior.Only){model= SingleBLRM.PK.Prior.WB; model.index=1}
-  if(!Prior.Only & (any(Npat < 1) || any(Ntox != round(Ntox)) || any(Npat != floor(Npat)))){model= SingleBLRM.PK.Weight.WB; model.index=2}
-  if(!Prior.Only & !(any(Npat < 1) || any(Ntox != round(Ntox)) || any(Npat != floor(Npat)))){model=SingleBLRM.PK.WB; model.index=3}
-  
+  if(!Prior.Only & (any(Npat <= 1) || any(Ntox != round(Ntox)) || any(Npat != floor(Npat)))){model= SingleBLRM.PK.Weight.WB; model.index=2}
+  if(!Prior.Only & !(any(Npat <= 1) || any(Ntox != round(Ntox)) || any(Npat != floor(Npat)))){model=SingleBLRM.PK.WB; model.index=3}
+
   #Data for jags
   if(Prior.Only){
-    
+
     data= list("Ndoses", "Ncat", "Nmix1", "Nmix2",
                "Ncov", "monotone.DLT", "monotone.DE", "Nout",
                "Prior", "Prior.PK", "Prior.beta", "Prior.sd.PK","Prior.re.sd.PK","Pmix", "Pmix.PK", "Prior.re.rho",
                "Doses", "DoseRef","Xout", 
                "Pcutoffs", "New.cohortsize")
   }
-  
+
   if(!Prior.Only & model.index== 3){
-    
+
     data= list("Ncohorts", "Ndoses", "Ncat", "Nmix1", "Nmix2",
                "Ncov", "monotone.DLT", "monotone.DE", "Nout",
                "Prior", "Prior.PK", "Prior.beta", "Prior.sd.PK","Prior.re.sd.PK","Pmix", "Pmix.PK","rand.m", "rand.slope", "Prior.re.rho",
                "Doses", "DoseRef","DosesAdm", "Ntox", "Npat","PK","X", "Xout", "Dose.Grp",
                "Pcutoffs", "New.cohortsize")
   }
-  
-  
+
+
   if(!Prior.Only & model.index== 2){
-    
+
     data= list("Ncohorts", "Ndoses", "Ncat", "Nmix1", "Nmix2",
                "Ncov", "monotone.DLT", "monotone.DE", "Nout",
                "Prior", "Prior.PK", "Prior.beta", "Prior.sd.PK", "Prior.re.sd.PK", "Pmix", "Pmix.PK","rand.m", "rand.slope", "Prior.re.rho",
                "Doses", "DoseRef","DosesAdm", "Ntox", "Npat","PK","X", "Xout", "Dose.Grp","zero",
                "Pcutoffs", "New.cohortsize")
   }
-  
-  
+
+
   #Initial values
   inits.fun = function(i){
-    
+
     logAlphaBetaAll <- matrix(NA, nrow=Nmix1, ncol=2)
-    
+
     for(i1 in 1:Nmix1){logAlphaBetaAll[i1,1:2] <- rmvnorm(1, sigma = diag(2))}
-    
+
     Z <- 1
-    
+
     logGammaAll <- matrix(NA, nrow=Nmix2, ncol=2)
-    
+
     for(i2 in 1:Nmix2){logGammaAll[i2,1:2] <- rmvnorm(1, sigma = diag(2))}
     Z.PK <- 1
-    
+
     return(list(logAlphaBetaAll = logAlphaBetaAll,
                 Z=Z,
                 logGammaAll = logGammaAll,
                 Z.PK=Z.PK
     ))
   }
-  
+
   inits <- lapply(rep(1,n.chains),inits.fun)
-  
+
   RndSeed.WinBUGS <- RSeed.WinBUGS
-  
+
   pars = c(pars,"logAlphaEBeta", "logAlphaBeta.XY", "logEGamma", "logGamma.XY")
-  
+
   if(!Prior.Only){pars=c(pars,"sd.re.PK")}
-  
-  
+
+
   if(DIC){rjags::load.module('dic')}
-  
+
   fit = jags(
     data=data,
     inits= inits,
@@ -372,132 +372,132 @@ SingleBLRM.PK <- function(Data               = NULL,
     progress.bar=progress.bar
     #bugs.directory="C:/Users/roychs04/Documents/Folder/Software/WinBUGS14"
   )
-  
-  
+
+
   #Processing output
-  
+
   vnames = c("mean", "sd", "2.5%", "50%", "97.5%", "Rhat")
   summary = fit$BUGSoutput$summary
   #fit$BUGSoutput$sims.matrix = NULL
   fit$BUGSoutput$sims.array = NULL
-  
+
   if(Warn){
     logAlphaBeta.neff <- fit$BUGSoutput$summary[c("logAlphaBeta[1]", "logAlphaBeta[2]"), "n.eff"]
-    
+
     if (any(logAlphaBeta.neff  < 1000)) {
       cat("\nWARNING: Neff < 1000 for logAlphaBeta  Consider increasing the sample size (number of iterations).\n")
       message("WARNING: Neff < 1000 for logAlphaBeta\ Consider increasing the sample size (number of iterations).")
     }
-    
+
     logGamma.neff <- fit$BUGSoutput$summary[c("logGamma[1]", "logGamma[2]"), "n.eff"]
-    
+
     if (any(logGamma.neff  < 1000)) {
       cat("\nWARNING: Neff < 1000 for logGamma  Consider increasing the sample size (number of iterations).\n")
       message("WARNING: Neff < 1000 for logGamma\ Consider increasing the sample size (number of iterations).")
     }
-    
+
   }
-  
-  
+
+
   logAlphaBeta = NULL
   Rhat.logAlphaBeta = NULL
   logAlphaBeta.cor=NULL
   Rhat.logAlphaBeta.cor=NULL
   logAlphaEBeta =NULL
   Rhat.logAlphaEBeta =NULL
-  
+
   logGamma = NULL
   Rhat.logGamma = NULL
   logGamma.cor=NULL
   Rhat.logGamma.cor=NULL
   logEGamma =NULL
   Rhat.logEGamma =NULL
-  
+
   beta = NULL
   Rhat.beta = NULL
-  
+
   sd.PK =NULL
   Rhat.sd.PK = NULL
-  
+
   sd.re.PK =NULL
   Rhat.sd.re.PK = NULL
-  
+
   P = NULL
   Rhat.P = NULL
-  
+
   Pcat = NULL
   PcatP = NULL
   pred.Tox =NULL
   Post.pmix = NULL
   Post.pmix.PK = NULL
-  
-  
-  
+
+
+
   if(is.element("logAlphaBeta", pars)){
     logAlphaBeta = BUGS.Select.Output("logAlphaBeta", summary, cols = vnames)
     Rhat.logAlphaBeta = logAlphaBeta[, "Rhat"]
-    
+
     logAlphaBeta = BUGS.Table2Array(logAlphaBeta, Labels = list(c("logAlpha", "logBeta")), Dim = 2)
-    
+
     logAlphaEBeta = BUGS.Select.Output("logAlphaEBeta", summary, cols = vnames)
     Rhat.logAlphaEBeta = logAlphaEBeta[, "Rhat"]
-    
+
     logAlphaEBeta = BUGS.Table2Array(logAlphaEBeta, Labels = list(c("logAlpha", "beta")), Dim = 2)
-    
+
   }
-  
+
   if(is.element("logAlphaBeta.XY", pars)){
-    
+
     logAlphaBeta.XY = BUGS.Select.Output("logAlphaBeta.XY", summary, cols = vnames)
     Rhat.logAlphaBeta.XY.cor = logAlphaBeta.XY["Rhat"]
-    
+
     logAlphaBeta.cor <-  (logAlphaBeta.XY[1] - logAlphaBeta[1, 1]*logAlphaBeta[2,1])/logAlphaBeta[1, 2]/logAlphaBeta[2, 2]
-    
+
   }
-  
+
   if(is.element("logGamma", pars)){
     logGamma = BUGS.Select.Output("logGamma", summary, cols = vnames)
     Rhat.logGamma = logGamma[, "Rhat"]
-    
+
     logGamma = BUGS.Table2Array(logGamma, Labels = list(c("logGamma.1", "logGamma.2")), Dim = 2)
-    
+
     logEGamma = BUGS.Select.Output("logEGamma", summary, cols = vnames)
     Rhat.logEGamma = logEGamma[, "Rhat"]
-    
+
     logEGamma = BUGS.Table2Array(logEGamma, Labels = list(c("logGamma.1", "Gamma.2")), Dim = 2)
-    
+
   }
-  
+
   if(is.element("logGamma.XY", pars)){
-    
+
     logGamma.XY = BUGS.Select.Output("logGamma.XY", summary, cols = vnames)
     Rhat.logGamma.XY.cor = logGamma.XY["Rhat"]
-    
+
     logGamma.cor <-  (logGamma.XY[1] - logGamma[1, 1]*logGamma[2,1])/logGamma[1, 2]/logGamma[2, 2]
-    
+
   }
-  
-  
+
+
   if(is.element("beta", pars)){
-    
+
     beta = BUGS.Select.Output("beta", summary, cols = vnames)
     Rhat.beta = beta["Rhat"]
   }
-  
+
   if(is.element("sd.PK", pars)){
-    
+
     sd.PK = BUGS.Select.Output("sd.PK", summary, cols = vnames)
     Rhat.sd.PK = sd.PK["Rhat"]
   }
   
-  
+
   if(is.element("sd.re.PK", pars)){
-    
+
     sd.re.PK = BUGS.Select.Output("sd.re.PK", summary, cols = vnames)
     Rhat.sd.re.PK = sd.re.PK["Rhat"]
   }
   
-  
+
   if (is.element("pTox", pars)) {
     P = BUGS.Select.Output("pTox", summary, cols = vnames)
     Rhat.P = P[, "Rhat"]
@@ -505,72 +505,72 @@ SingleBLRM.PK <- function(Data               = NULL,
     P = cbind(P, aiw)
     P = BUGS.Table2Array(P, Labels = list(Doses.Label, Xout.label), Dim = c(Ndoses,Ncov))
     P = aperm(P, c(1,3,2))
-    
+
   }
   
-  
-  
+
+
   if (is.element("pCat", pars)) {
     Pcat = BUGS.Select.Output("pCat", summary, cols = vnames)
     Pcat = BUGS.Table2Array(Pcat, Labels = list(Doses.Label, intLabels, Xout.label), Dim = c(Ndoses, Ncat, Nout))
     Pcat = Pcat[, , , "mean", drop = FALSE]
     #Pcat = aperm(Pcat, c(1, 3, 2, 4))
-    
+
   }
   
-  
-  
+
+
   if (is.element("pCat", pars) & is.element("pTox", pars)){
-    
+
     PcatP <- cbind(rbind(NULL,Pcat[,,,1]), rbind(NULL,P[,,1]))
-    
-    
+
+
     vnames1 = c(intLabels,vnames,"aiw")
-    
+
     dimnames(PcatP) = list(Doses.Label, vnames1)
   }
-  
+
   if (is.element("pred.Tox", pars)){
-    
+
     pred.Tox = BUGS.Select.Output("pred.Tox", summary, cols = vnames)
     Rhat.pred.Tox= pred.Tox[, "Rhat"]
-    
-    
-    
+
+
+
     pred.Tox = BUGS.Table2Array(pred.Tox, Labels = list(Doses.Label, pred.tox.Label, Xout.label), Dim = c(Ndoses, New.cohortsize+1, Nout))
     pred.Tox = pred.Tox[, ,,"mean", drop = FALSE]
-    
+
   }
-  
-  
+
+ 
   if (is.element("Zcat", pars)){
-    
+
     Post.pmix.1 = BUGS.Select.Output("Zcat", summary, cols = "mean")
     Post.pmix <- cbind(NULL,Post.pmix.1[-Nmix1])
     Post.pmix.nms <- paste("mix",1:(Nmix1-1),sep='')
     rownames(Post.pmix) <- Post.pmix.nms
-    
+
   }
-  
-  
+
+
   if (is.element("Zcat.PK", pars)){
-    
+
     Post.pmix.PK.1 = BUGS.Select.Output("Zcat.PK", summary, cols = "mean")
-    Post.pmix.PK <- cbind(NULL,Post.pmix.PK.1[-Nmix2])
+    Post.pmix.PK <- cbind(NULL,Post.pmix.1[-Nmix2])
     Post.pmix.PK.nms <- paste("mix",1:(Nmix2-1),sep='')
     rownames(Post.pmix.PK) <- Post.pmix.PK.nms
-    
+
   }
-  
-  
+
+
   Rhat = c(Rhat.logAlphaBeta, Rhat.logAlphaBeta.cor, Rhat.logGamma, Rhat.logGamma.cor,Rhat.P)
-  
+
   Rhat.max = max(Rhat)
-  
+
   if (Rhat.max > 1.1) {
     warning("\n Warning: at least one of the parameters has a Gelman-Rubin diagnostic Rhat > 1.1")
   }
-  
+
   Priors = list(Prior.logAB = Prior.logAB,
                 pmix.logAB = pmix.logAB,
                 Prior.logGamma = Prior.logAB.PK,
@@ -579,38 +579,38 @@ SingleBLRM.PK <- function(Data               = NULL,
                 Prior.sd.PK = Prior.sd.PK,
                 Prior.re.sd.PK = Prior.re.sd.PK
   )
-  
+
   labels = list(intLabels = intLabels)
   Agents = Agent
-  
+
   if(!Prior.Only){
     Data.1 = data.frame(t(do.call(rbind, Data)))[, -2]  # remove Dose.Grp because it jeopardize all simulation calculation
     if(is.null(Data$X)){colnames(Data.1) = c("DoseAdm", "Npat","Ntox", "Weight", "PK")}
-    else{colnames(Data.1) =c("DoseAdm", "Npat","Ntox", "Weight", "PK","X")}
+     else{colnames(Data.1) =c("DoseAdm", "Npat","Ntox", "Weight", "PK","X")}
     N = c(Ncohorts = Ncohorts, Ndoses = Ndoses, Nmix1=Nmix1-1, Nmix2=Nmix2-1, Ncov=Ncov)
-    
+
     Data.DLT = subset(Data.1, select=c(DoseAdm, Npat,Ntox, Weight))
     Data11 <- aggregate(Data.DLT, by=list(Data.DLT$DoseAdm, Data.DLT$Weight),sum)[,c(1,2,4,5)]
-    
+
     Data1 <- Data11[,c(1,3,4,2)]
     colnames(Data1) = c("DoseAdm", "Npat","Ntox", "Weight")
-    
+
     Data.PK =  subset(Data.1, select=c(DoseAdm, PK))
     Data12.1 <- aggregate(Data.PK, by=list(Data.PK$DoseAdm), mean)[,c(1,3)]
     Data12.2 <- aggregate(Data.PK, by=list(Data.PK$DoseAdm), sd)[,c(1,3)]
     Data2 <- merge( Data12.1, Data12.2, by="Group.1")
     colnames(Data2) = c("DoseAdm", "mean.PK","sd.PK")
-    
+
   }
-  
+
   if(Prior.Only){
     Data1 = NULL
     Data2 = NULL
     N = c(Ndoses = Ndoses, Nmix1=Nmix1-1, Nmix2=Nmix2-1, Ncov=Ncov)
   }
-  
+
   #Collecting outputs
-  
+
   outlist = list(Data = list(data = list(Data1, Data2), N = N, labels = labels, Agents = Agents),
                  Priors = Priors,
                  logAlphaBeta = logAlphaBeta,
@@ -631,43 +631,43 @@ SingleBLRM.PK <- function(Data               = NULL,
                  Rhat = list(Rhat = Rhat, Rhat.max = Rhat.max),
                  MCMC = list(pars.monitored = pars, MCMC = MCMC, RndSeed.R = Rnd.seed, RndSeed.WinBUGS = RndSeed.WinBUGS),
                  R2WB = fit)
-  
-  
+
+
   if(Plot){
-    
+
     for(ll in 1:Nout){
-      
-      P1 <- outlist$P[,,ll]
-      
-      Plot.P(Est = P1, RowNames = Doses.Label)
-      
-      pdf(file = paste(Outfile,"_P","Xout_",ll,'.pdf',sep=''), onefile = F)
-      
-      Plot.P(Est = P1, RowNames = Doses.Label)
-      
-      dev.off()
-      
-    }
+
+    P1 <- outlist$P[,,ll]
     
+    Plot.P(Est = P1, RowNames = Doses.Label)
+
+    pdf(file = paste(Outfile,"_P","Xout_",ll,'.pdf',sep=''), onefile = F)
+
+    Plot.P(Est = P1, RowNames = Doses.Label)
+
+    dev.off()
+
+    }
+
     #Pca1 = array(NA, dim=c(dim(outlist$Pcat)[1], dim(outlist$Pcat)[2]))
     for(kk in 1:Nout){
-      
-      Pcat1 <- outlist$Pcat[,,,kk]
-      
-      Plot.Pcat(Pcat = Pcat1, crit=int.crit, RowNames = Doses.Label)
-      
-      pdf(file = paste(Outfile,"_Pcat","Xout_",kk,'.pdf',sep=''), onefile = F)
-      
-      Plot.Pcat(Pcat = Pcat1, crit=int.crit, RowNames = Doses.Label)
-      
-      dev.off()
-      
+
+    Pcat1 <- outlist$Pcat[,,,kk]
+     
+    Plot.Pcat(Pcat = Pcat1, crit=int.crit, RowNames = Doses.Label)
+
+    pdf(file = paste(Outfile,"_Pcat","Xout_",kk,'.pdf',sep=''), onefile = F)
+
+    Plot.Pcat(Pcat = Pcat1, crit=int.crit, RowNames = Doses.Label)
+
+    dev.off()
+
     }
   }
-  
-  
+
+
   #Creating Output file with necessary Outputs
-  
+
   sink(paste(Outfile, ".txt", sep = ""), append = F)
   cat("\n --------------------------------------------------------------------------------\n")
   cat("Dose Escalation: Bayesian Inference")
@@ -679,7 +679,7 @@ SingleBLRM.PK <- function(Data               = NULL,
   cat("\n")
   print(outlist$Data)
   cat("\n")
-  
+
   cat("\n --------------------------------------------------------------------------------\n")
   cat(" Posterior Results \n\n")
   cat("\n --------------------------------------------------------------------------------\n")
@@ -716,26 +716,26 @@ SingleBLRM.PK <- function(Data               = NULL,
   cat("\n")
   print(outlist$PcatP)
   cat("\n")
-  
+
   cat("\n")
   cat("Gelman-Rubin diagnostics \n\n")
   cat("\n")
   print(outlist$Rhat)
   cat("\n")
-  
+
   cat("\n")
   cat("Mixture Probabilities: DLT Parameters \n\n")
   cat("\n")
   print(outlist$Post.pmix)
   cat("\n")
-  
-  
+
+
   cat("\n")
   cat("Mixture Probabilities: PK Parameters \n\n")
   cat("\n")
   print(outlist$Post.pmix.PK)
   cat("\n")
-  
+
   cat("\n")
   cat("\n --------------------------------------------------------------------------------\n")
   cat(" Model Specification \n\n")
@@ -745,14 +745,14 @@ SingleBLRM.PK <- function(Data               = NULL,
   cat("\n")
   print(outlist$Priors)
   cat("\n")
-  
+
   cat("\n")
   cat("MCMC parameters \n\n")
   cat("\n")
   print(outlist$MCMC)
   cat("\n")
   sink()
-  
+
   return(outlist)
-  
+
 }

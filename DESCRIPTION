@@ -1,6 +1,6 @@
 Package: OncoPh1BLRM
 Title: Oncology Phase I Design and Analysis Tools
-Version: 1.4.6
+Version: 1.5.0
 Authors@R: c(
              person("Satrajit", "Roychoudhury", email = "satrajit.roychoudhury@pfizer.com", role = c("aut", "cre")),
              person(given = "Arnab Kumar", family = "Maity", email = "Arnab.Maity@pfizer.com", role = "ctb"))

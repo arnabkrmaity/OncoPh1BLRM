@@ -48,11 +48,11 @@ SingleBLRM.PK.Prior.WB <- function(){
     Zcat.PK[j] <- equals(Z.PK,j)
   }
 
-  logGamma[1] <-  logGammaAll[Z.PK,1]
-  logGamma[2] <-  logGammaAll[Z.PK,2]
+  logGamma[1] <-  logGammaAll[Z,1]
+  logGamma[2] <-  logGammaAll[Z,2]
 
-  logEGamma[1] <-  logGammaAll[Z.PK,1]
-  logEGamma[2] <-  exp(logGammaAll[Z.PK,2])
+  logEGamma[1] <-  logGammaAll[Z,1]
+  logEGamma[2] <-  exp(logGammaAll[Z,2])
 
   logGamma.XY <- logGamma[1]*logGamma[2]
 
